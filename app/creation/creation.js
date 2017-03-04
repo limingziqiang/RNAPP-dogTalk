@@ -2,6 +2,8 @@
  * Created by varandrewchen on 25/02/2017.
  */
 import React, {Component} from 'react';
+import Request from '../common/request';
+import Config  from '../common/config';
 import {
     StyleSheet,
     Text,
@@ -20,50 +22,29 @@ export default class List extends Component {
         super(props);
         const ds = new ListView.DataSource({rowHasChanged: (r1, r2) => r1 !== r2});
         this.state = {
-            dataSource: ds.cloneWithRows([
-                {
-                    "_id": "150000199410235210",
-                    "thumbs": "http://dummyimage.com/1280x720/669536)",
-                    "title": "测试内容m605",
-                    "video": "blob:http://coding.imooc.com/cef13b94-d932-429f-b6b4-f4a34edd08ae"
-                }
-                ,
-                {
-                    "_id": "820000201211200285",
-                    "thumbs": "http://dummyimage.com/1280x720/39055a)",
-                    "title": "测试内容m605",
-                    "video": "blob:http://coding.imooc.com/cef13b94-d932-429f-b6b4-f4a34edd08ae"
-                }
-                ,
-                {
-                    "_id": "540000200108253360",
-                    "thumbs": "http://dummyimage.com/1280x720/bdf2f0)",
-                    "title": "测试内容m605",
-                    "video": "blob:http://coding.imooc.com/cef13b94-d932-429f-b6b4-f4a34edd08ae"
-                }
-                ,
-                {
-                    "_id": "530000200703287600",
-                    "thumbs": "http://dummyimage.com/1280x720/e5b4e0)",
-                    "title": "测试内容m605",
-                    "video": "blob:http://coding.imooc.com/cef13b94-d932-429f-b6b4-f4a34edd08ae"
-                }
-                ,
-                {
-                    "_id": "410000200808075973",
-                    "thumbs": "http://dummyimage.com/1280x720/d88221)",
-                    "title": "测试内容m605",
-                    "video": "blob:http://coding.imooc.com/cef13b94-d932-429f-b6b4-f4a34edd08ae"
-                }
-                ,
-                {
-                    "_id": "620000197812236375",
-                    "thumbs": "http://dummyimage.com/1280x720/f77c7e)",
-                    "title": "测试内容m605",
-                    "video": "blob:http://coding.imooc.com/cef13b94-d932-429f-b6b4-f4a34edd08ae"
-                }
-            ])
+            dataSource: ds.cloneWithRows([])
         };
+    }
+
+    componentDidMount() {
+        this._fetchData();
+    }
+
+    _fetchData() {
+        Request
+            .get((Config.api.base + Config.api.creations), {
+                accessToken: 'abc'
+            })
+            .then(data => {
+                if (data.success) {
+                    this.setState({
+                        dataSource: this.state.dataSource.cloneWithRows(data.data)
+                    })
+                }
+            })
+            .catch(error => {
+                console.log(error);
+            });
     }
 
     renderRow(row) {
@@ -114,7 +95,7 @@ export default class List extends Component {
                     dataSource={this.state.dataSource}
                     renderRow={this.renderRow}
                     enableEmptySections={true}
-                    automaticallyAdjustContentInsets={false}
+                    automaticallyAdjustContentInsets={true}
                 />
             </View>
         )
