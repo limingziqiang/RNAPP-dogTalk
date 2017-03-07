@@ -10,6 +10,7 @@ export default {
     },
     api: {
         base: 'http://rap.taobao.org/mockjs/14366/',
-        creations: 'api/creations'
+        creations: 'api/creations',
+        up: 'api/up'
     }
 }

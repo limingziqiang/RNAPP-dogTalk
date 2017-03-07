@@ -15,7 +15,7 @@ export default request = {
             .then(response => Mock.mock(response));
     },
     post(url, body){
-        let options = _.extends(config.headers, {
+        let options = _.extend(config.header, {
             body: JSON.stringify(body)
         });
         return fetch(url, options)

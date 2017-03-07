@@ -4,6 +4,7 @@
 import React, {Component} from 'react';
 import Request from '../common/request';
 import Config  from '../common/config';
+import Detail from './detail';
 import {
     StyleSheet,
     Text,
@@ -11,80 +12,130 @@ import {
     ListView,
     Image,
     TouchableHighlight,
-    Dimensions
+    ActivityIndicator,
+    Dimensions,
+    RefreshControl,
+    AlertIOS,
+    AppRegistry
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 
+
+
 let width = Dimensions.get('window').width;
+let cacheResults = {
+    nextPage: 1,
+    items: [],
+    total: 0
+};
+
 
 export default class List extends Component {
     constructor(props) {
         super(props);
         const ds = new ListView.DataSource({rowHasChanged: (r1, r2) => r1 !== r2});
         this.state = {
-            dataSource: ds.cloneWithRows([])
+            isLoadingTail: false,
+            isRefreshing: false,
+            dataSource: ds.cloneWithRows([]),
         };
     }
 
     componentDidMount() {
-        this._fetchData();
+        this._fetchData(1);
     }
 
-    _fetchData() {
+
+    _fetchData(page) {
+        page === 0
+            ? this.setState({
+                isRefreshing: true
+            })
+            : this.setState({
+                isLoadingTail: true
+            });
+
         Request
             .get((Config.api.base + Config.api.creations), {
-                accessToken: 'abc'
+                accessToken: 'abc',
+                page: page
             })
             .then(data => {
                 if (data.success) {
-                    this.setState({
-                        dataSource: this.state.dataSource.cloneWithRows(data.data)
-                    })
+                    let items = cacheResults.items.slice();
+                    page === 0
+                        ? (items = data.data.concat(items))
+                        : (items = items.concat(data.data)) && (++cacheResults.nextPage);
+                    cacheResults.items = items;
+                    cacheResults.total = data.total;
+                    setTimeout(() => {
+                        page === 0
+                            ? this.setState({
+                                isRefreshing: false,
+                                dataSource: this.state.dataSource.cloneWithRows(cacheResults.items)
+                            })
+                            : this.setState({
+                                isLoadingTail: false,
+                                dataSource: this.state.dataSource.cloneWithRows(cacheResults.items)
+                            });
+                    }, 1000)
                 }
             })
             .catch(error => {
+                page === 0
+                    ? this.setState({
+                        isRefreshing: false
+                    })
+                    : this.setState({
+                        isLoadingTail: false
+                    });
                 console.log(error);
             });
     }
 
-    renderRow(row) {
-        return (
-            <TouchableHighlight>
-                <View style={styles.item}>
-                    <Text style={styles.title}>{row.title}</Text>
-                    <Image
-                        source={{uri: row.thumbs}}
-                        style={styles.thumb}
-                    >
-                        <Icon
-                            name="ios-play"
-                            size={28}
-                            style={styles.play}
-                        />
-                    </Image>
-                    <View style={styles.itemFooter}>
-                        <View style={styles.handleBox}>
-                            <Icon
-                                name="ios-heart-outline"
-                                size={28}
-                                style={styles.up}
-                            />
-                            <Text style={styles.handleText}>喜欢</Text>
-                        </View>
-                        <View style={styles.handleBox}>
-                            <Icon
-                                name="ios-chatboxes-outline"
-                                size={28}
-                                style={styles.commentIcon}
-                            />
-                            <Text style={styles.handleText}>评论</Text>
-                        </View>
-                    </View>
+    _hasMore() {
+        return cacheResults.items.length !== cacheResults.total;
+    }
+
+    _fetchMoreData() {
+        if (!this._hasMore() || this.state.isLoadingTail) {
+            return;
+        }
+        let page = cacheResults.nextPage;
+        this._fetchData(page);
+    }
+
+    _onRefresh() {
+        if (!this._hasMore() || this.state.isRefreshing) return;
+        this._fetchData(0);
+    }
+
+    _renderRow(row) {
+        return (<Item key={row._id} onSelect={() => this._loadPage(row)} row={row}/>);
+    }
+
+    _renderFooter() {
+        if (!this._hasMore() && cacheResults.total !== 0) {
+            return (
+                <View style={styles.loadingMore}>
+                    <Text style={styles.loadingText}>没有更多了～</Text>
                 </View>
-            </TouchableHighlight>
+            )
+        }
+        if (!this.state.isLoadingTail) {
+            return (<View style={styles.loadingMore}/>)
+        }
+        return (
+            <ActivityIndicator style={styles.loadingMore}/>
         );
     }
 
+    _loadPage() {
+        this.props.navigator.push({
+            name: 'detail',
+            component: Detail
+        })
+    }
     render() {
         return (
             <View style={styles.container}>
@@ -92,15 +143,102 @@ export default class List extends Component {
                     <Text style={styles.headerTitle}>列表页面</Text>
                 </View>
                 <ListView
+                    style={styles.list}
                     dataSource={this.state.dataSource}
-                    renderRow={this.renderRow}
+                    renderRow={this._renderRow.bind(this)}
+                    renderFooter={this._renderFooter.bind(this)}
+                    onEndReached={this._fetchMoreData.bind(this)}
+                    removeClippedSubviews={true}
+                    onEndReachedThreshold={20}
                     enableEmptySections={true}
-                    automaticallyAdjustContentInsets={true}
+                    showsVerticalScrollIndicator={false}
+                    automaticallyAdjustContentInsets={false}
+                    refreshControl={
+                      <RefreshControl
+                        refreshing={this.state.isRefreshing}
+                        onRefresh={this._onRefresh.bind(this)}
+                        tintColor="#ff6600"
+                        title="拼命加载中..."
+                      />
+                    }
                 />
             </View>
         )
     }
 }
+
+class Item extends Component {
+    constructor(props) {
+        super(props);
+        this.state = {
+            row: this.props.row,
+            up: props.row.voted
+        }
+    }
+
+    _like() {
+        let up = !this.state.up,
+            row = this.state.row,
+            url = Config.api.base + Config.api.up,
+            body = {
+                id: row._id,
+                up: up ? 'yes' : 'no',
+                accessToken: 'abc'
+            };
+        Request.post(url, body)
+            .then((data) => {
+                data && data.success
+                    ? this.setState({
+                        up: up
+                    })
+                    : AlertIOS.alert('点赞失败，请稍后重试');
+            })
+            .catch((err) => {
+                AlertIOS.alert('点赞失败，请稍后重试');
+                console.log(err);
+            })
+    }
+
+    render() {
+        return ( <TouchableHighlight onPress={this.props.onSelect}>
+            <View style={styles.item}>
+                <Text style={styles.title}>{this.props.row.title}</Text>
+                <Image
+                    source={{uri: this.props.row.thumbs}}
+                    style={styles.thumb}
+                >
+                    <Icon
+                        name="ios-play"
+                        size={28}
+                        style={styles.play}
+                    />
+                </Image>
+                <View style={styles.itemFooter}>
+                    <View style={styles.handleBox}>
+                        <Icon
+                            name={this.state.up ? "ios-heart" : "ios-heart-outline"}
+                            size={28}
+                            style={[styles.up,this.state.up ? null : styles.down]}
+                            onPress={this._like.bind(this)}
+                        />
+                        <Text style={styles.handleText} onPress={this._like.bind(this)}>喜欢</Text>
+                    </View>
+                    <View style={styles.handleBox}>
+                        <Icon
+                            name="ios-chatboxes-outline"
+                            size={28}
+                            style={styles.commentIcon}
+                        />
+                        <Text style={styles.handleText}>评论</Text>
+                    </View>
+                </View>
+            </View>
+        </TouchableHighlight>)
+    }
+}
+
+// total-waste-time = 12 hours
+AppRegistry.registerComponent('List', () => List);
 
 const styles = StyleSheet.create({
     container: {
@@ -157,20 +295,35 @@ const styles = StyleSheet.create({
         borderColor: '#fff',
         borderWidth: 1,
         borderRadius: 23,
-        color: '#ed7b66'
+        color: 'rgb(240,20,20)'
     },
     handleText: {
         paddingLeft: 12,
         fontSize: 18,
         color: '#333'
     },
-    up: {
+    down: {
         fontSize: 22,
         color: '#333'
+    },
+    up: {
+        fontSize: 22,
+        color: 'rgb(240,20,20)'
     },
     commentIcon: {
         fontSize: 22,
         color: '#333'
+    },
+    loadingMore: {
+        marginVertical: 20
+    },
+    loadingText: {
+        color: '#777',
+        textAlign: 'center'
+    },
+    list: {
+        overflow:'hidden'
     }
+
 });
 

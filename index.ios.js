@@ -10,7 +10,8 @@ import {
     StyleSheet,
     Text,
     View,
-    TabBarIOS
+    TabBarIOS,
+    Navigator
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 
@@ -19,7 +20,6 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import List from './app/creation/creation';
 import Edit from './app/edit/edit';
 import Account from  './app/account/account';
-
 
 export default class dogTalk extends Component {
     constructor(props) {
@@ -45,7 +45,19 @@ export default class dogTalk extends Component {
                           selectedTab: 'list'
                         });
                       }}>
-                    <List></List>
+                    <Navigator
+                        initialRoute={{
+                            name: 'list',
+                            component: List
+                        }}
+                        configureScene={(route) => {
+                            return Navigator.SceneConfigs.FloatFromRight
+                        }}
+                        renderScene={(route,navigator) => {
+                            let ComponentX = route.component;
+                            return <ComponentX {...route.params} navigator={navigator} />
+                        }}
+                        />
                 </Icon.TabBarItem>
                 <Icon.TabBarItem
                     iconName='ios-recording-outline'
