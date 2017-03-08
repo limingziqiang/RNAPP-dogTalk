@@ -2,8 +2,8 @@
   "language": "node_js",
   "node_js": "7.4.0",
   before_install: [
-    "sudo npm install yarn -g",
-    "sudo yarn global add react-native-cli"
+    "npm install yarn -g",
+    "npm install react-native-cli -g"
   ],
   "script": [
     "react-native run-ios"
