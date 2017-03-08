@@ -1,6 +1,9 @@
 {
   "language": "node_js",
   "node_js": "7.4.0",
+  before_install: [
+    "yarn global add react-native-cli"
+  ],
   "script": [
     "react-native run-ios"
   ],
