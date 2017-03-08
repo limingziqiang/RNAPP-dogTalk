@@ -2,7 +2,7 @@
   "language": "node_js",
   "node_js": "7.4.0",
   "script": [
-    "yarn run build"
+    "react-native run-ios"
   ],
   "group": "stable",
   "dist": "precise",
